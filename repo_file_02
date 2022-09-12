@@ -1,0 +1,144 @@
+using System;
+using System.IO;
+using System.Xml;
+using System.Xml.Serialization;
+
+
+public class PurchaseOrder
+{
+    public Address ShipTo;
+    public string OrderDate;
+    [XmlArray("Items")]
+    public OrderedItem[] OrderedItems;
+    public decimal SubTotal;
+    public decimal ShipCost;
+    public decimal TotalCost;
+}
+
+public class Address
+{
+    [XmlAttribute]
+    public string Name;
+    public string Line1;
+    [XmlElement(IsNullable = false)]
+    public string City;
+    public string State;
+    public string Zip;
+}public class OrderedItem
+{
+    public string ItemName;
+    public string Description;
+    public decimal UnitPrice;
+    public int Quantity;
+    public decimal LineTotal;
+    public void Calculate()
+    {
+        LineTotal = UnitPrice * Quantity;
+    }
+}
+
+public class Test
+{
+    public static void Main()
+    {
+        Test t = new Test();
+        t.CreatePO("po.xml");
+        t.ReadPO("po.xml");
+    }
+
+    private void CreatePO(string filename)
+    {
+        XmlSerializer serializer =
+        new XmlSerializer(typeof(PurchaseOrder));
+        TextWriter writer = new StreamWriter(filename);
+        PurchaseOrder po = new PurchaseOrder();
+        Address billAddress = new Address();
+        billAddress.Name = "Ashish Kumar Modi";
+        billAddress.Line1 = "Mahadevpura";
+        billAddress.City = "Bangalore";
+        billAddress.State = "Karnataka";
+        billAddress.Zip = "560037";
+        po.ShipTo = billAddress;
+        po.OrderDate = System.DateTime.Now.ToLongDateString();
+        OrderedItem i1 = new OrderedItem();
+        i1.ItemName = "Laptop";
+        i1.Description = "Lenovo Thinkpad";
+        i1.UnitPrice = (decimal)500.0;
+        i1.Quantity = 5;
+        i1.Calculate();
+        OrderedItem i2 = new OrderedItem();
+        i2.ItemName = "Air Conditioner";
+        i2.Description = "Samsung AC";
+        i2.UnitPrice = (decimal)1000.0;
+        i2.Quantity = 3;
+        i2.Calculate();
+        OrderedItem[] items = { i1,i2 };
+        po.OrderedItems = items;
+        decimal subTotal = new decimal();
+        foreach (OrderedItem oi in items)
+        {
+            subTotal += oi.LineTotal;
+        }
+        po.SubTotal = subTotal;
+        po.ShipCost = (decimal)10000.0;
+        po.TotalCost = po.SubTotal + po.ShipCost;
+        serializer.Serialize(writer, po);
+        writer.Close();
+    }
+
+    protected void ReadPO(string filename)
+    {
+        XmlSerializer serializer = new XmlSerializer(typeof(PurchaseOrder));
+        serializer.UnknownNode += new
+        XmlNodeEventHandler(serializer_UnknownNode);
+        serializer.UnknownAttribute += new
+        XmlAttributeEventHandler(serializer_UnknownAttribute);
+        FileStream fs = new FileStream(filename, FileMode.Open);
+        PurchaseOrder po;
+        po = (PurchaseOrder)serializer.Deserialize(fs);
+        Console.WriteLine("OrderDate: " + po.OrderDate);
+        Address shipTo = po.ShipTo;
+        ReadAddress(shipTo, "Ship To:");
+        OrderedItem[] items = po.OrderedItems;
+        Console.WriteLine("Items to be shipped:");
+        foreach (OrderedItem oi in items)
+        {
+            Console.WriteLine("\t" +
+            oi.ItemName + "\t" +
+            oi.Description + "\t" +
+            oi.UnitPrice + "\t" +
+            oi.Quantity + "\t" +
+            oi.LineTotal);
+        }
+        Console.WriteLine(
+        "\n\t\t\t\t\t Subtotal\t" + po.SubTotal +
+        "\n\t\t\t\t\t Shipping\t" + po.ShipCost +
+        "\n\t\t\t\t\t Total\t\t" + po.TotalCost
+        );
+    }
+
+    protected void ReadAddress(Address a, string label)
+    {
+        Console.WriteLine(label);
+        Console.Write("\t" +
+        a.Name + "\n\t" +
+        a.Line1 + "\n\t" +
+        a.City + "\t" +
+        a.State + "\n\t" +
+        a.Zip + "\n");
+    }
+
+    protected void serializer_UnknownNode
+    (object sender, XmlNodeEventArgs e)
+    {
+        Console.WriteLine("Unknown Node:" + e.Name + "\t" + e.Text);
+    }
+
+    protected void serializer_UnknownAttribute
+    (object sender, XmlAttributeEventArgs e)
+    {
+        System.Xml.XmlAttribute attr = e.Attr;
+        Console.WriteLine("Unknown attribute " +
+        attr.Name + "='" + attr.Value + "'");
+    }
+}
